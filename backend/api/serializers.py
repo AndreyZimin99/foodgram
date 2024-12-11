@@ -1,16 +1,28 @@
+import base64
 import re
 
-from django.contrib.auth.hashers import make_password
+from django.core.files.base import ContentFile
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
-from recipes.models import Recipe, Tag, Ingredient
+from recipes.models import Recipe, RecipeIngredient, Tag, Ingredient
 from subscriptions.models import Subscribtion
 from users.models import User
 
 
 MAX_EMAIL_LENGTH = 254
 MAX_USERNAME_LENGTH = 150
+
+
+class Base64ImageField(serializers.ImageField):
+    def to_internal_value(self, data):
+        if isinstance(data, str) and data.startswith('data:image'):
+            format, imgstr = data.split(';base64,')
+            ext = format.split('/')[-1]
+
+            data = ContentFile(base64.b64decode(imgstr), name='temp.' + ext)
+
+        return super().to_internal_value(data)
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
@@ -67,24 +79,6 @@ class TokenSerializer(serializers.Serializer):
     password = serializers.CharField(required=True)
 
 
-class RecipeSerializer(serializers.ModelSerializer):
-    """Сериализатор для рецепта."""
-
-    author = serializers.SlugRelatedField(
-        slug_field='username', read_only=True
-    )
-    tag = serializers.SlugRelatedField(
-        queryset=Tag.objects.all(), slug_field='slug', many=True
-    )
-    ingredient = serializers.SlugRelatedField(
-        queryset=Ingredient.objects.all(), slug_field='slug', many=True
-    )
-
-    class Meta:
-        fields = '__all__'
-        model = Recipe
-
-
 class IngredientSerializer(serializers.ModelSerializer):
     """Сериализатор для ингридиента."""
 
@@ -99,6 +93,57 @@ class TagSerializer(serializers.ModelSerializer):
     class Meta:
         fields = '__all__'
         model = Tag
+
+
+class RecipeSerializer(serializers.ModelSerializer):
+    """Сериализатор для рецепта."""
+
+    author = serializers.SlugRelatedField(
+        slug_field='username', read_only=True
+    )
+    ingredients = serializers.ListField(child=serializers.DictField())
+    tags = serializers.PrimaryKeyRelatedField(queryset=Tag.objects.all(),
+                                              many=True)
+
+    # tags = serializers.SlugRelatedField(
+    #     queryset=Tag.objects.all(), slug_field='id', many=True
+    # )
+    # tags = serializers.ListField()
+    # tags = TagSerializer()
+    image = Base64ImageField()
+    image_url = serializers.SerializerMethodField(
+        'get_image_url',
+        read_only=True,
+    )
+
+    class Meta:
+        fields = '__all__'
+        model = Recipe
+
+    def create(self, validated_data):
+        ingredients_data = validated_data.pop('ingredients')
+        tags_data = validated_data.pop('tags')
+        recipe = Recipe.objects.create(**validated_data)
+
+        for item in ingredients_data:
+            ingredient_id = item['id']
+            amount = item['amount']
+            ingredient = Ingredient.objects.get(id=ingredient_id)
+            RecipeIngredient.objects.create(recipe=recipe,
+                                            ingredient=ingredient,
+                                            amount=amount)
+
+        recipe.tags.set(tags_data)
+        return recipe
+
+        # for item in tags_data:
+        #     tag = Ingredient.objects.get(id=item)
+        #     recipe.ingredients.add(tag)
+
+class RecipeIngredientSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RecipeIngredient
+        fields = ['ingredient', 'amount']
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):

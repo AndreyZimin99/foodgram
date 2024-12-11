@@ -14,7 +14,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
 
 
-from recipes.models import Recipe, Tag, Ingredient
+from recipes.models import Recipe, RecipeIngredient, Tag, Ingredient
 from subscriptions.models import Subscribtion
 from users.models import User
 # from .mixins import EmailConfirmationMixin
@@ -97,41 +97,28 @@ class UserViewSet(viewsets.ModelViewSet):
         return UserSerializer
 
 
-# class UserMeView(APIView):
-#     permission_classes = [IsAuthenticated()]
+class UserMeView(APIView):
+    """Получение информации о текущем пользователе."""
+    permission_classes = [IsAuthenticated]
 
-#     def get(self, request):
-#         serializer = UserSerializer(request.user)
-#         return Response(serializer.data)
+    def get(self, request):
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
 
-        # пока без этого
-    # @action(
-    #     detail=False,
-    #     methods=['get', 'put', 'post', 'delete'],
-    #     url_path='me'
-    # )
-    # def me(self, request):
-    #     """Получение или изменение данных текущего пользователя."""
-    #     if request.method == 'GET':
-    #         user_data = self.get_serializer(request.user).data
-    #         return Response(user_data)
-           
 
-        #    Пока для информации
-        # if request.method == 'PUT':
-        #     serializer = 
-        #     return Response(user_data)
-        
-        # if request.method == 'PATCH':
-        #     serializer = self.get_serializer(
-        #         request.user, data=request.data, partial=True
-        #     )
-        #     serializer.is_valid(raise_exception=True)
-        #     serializer.save()
-        #     return Response(serializer.data)
+class UserAvatarView(APIView):
+    permission_classes = [IsAuthenticated]
 
-        # if request.method == 'DELETE':
-        #     return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    def put(self, request):
+        request.user.avatar = request.data['avatar']
+        request.user.save()
+        return Response(request.data)
+
+    def delete(self, request):
+        request.user.avatar.delete(save=False)
+        request.user.avatar = None
+        request.user.save()
+        return Response({'detail': 'Учетные данные не были предоставлены.'})
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -139,8 +126,36 @@ class RecipeViewSet(viewsets.ModelViewSet):
     serializer_class = RecipeSerializer
     pagination_class = PageNumberPagination
 
+    # def get_queryset(self):
+    #     return (
+    #         Recipe.objects.all()
+    #         .prefetch_related('ingredients')
+    #         .prefetch_related('tags')
+    #     )
+
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+        # ingredients_data = self.validated_data.pop('ingredients')
+        # recipe = Recipe.objects.create(**self.validated_data)
+        # # ingredients = self.request.data['ingredients']
+        # for item in ingredients_data:
+        #     ingredient_id = item['id']
+        #     amount = item['amount']
+        #     ingredient = Ingredient.objects.get(id=ingredient_id)
+        #     ingredients = RecipeIngredient.objects.create(
+        #         recipe=recipe, ingredient=ingredient, amount=amount)
+        serializer.save(author=self.request.user)  # ingredients=ingredients)
+
+    # def create(self, validated_data):
+    #     ingredients_data = validated_data.pop('ingredients')
+    #     recipe = Recipe.objects.create(**validated_data)
+
+    #     for item in ingredients_data:
+    #         ingredient_id = item['id']
+    #         quantity = item['quantity']
+    #         ingredient = Ingredient.objects.get(id=ingredient_id)
+    #         RecipeIngredient.objects.create(recipe=recipe, ingredient=ingredient, quantity=quantity)
+
+    #     return recipe
 
 
 class TagViewSet(viewsets.ModelViewSet):
