@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'recipes.apps.RecipesConfig',
     'users.apps.UsersConfig',
     'subscriptions.apps.SubscriptionsConfig',
+    'favorite.apps.FavoriteConfig',
 ]
 
 MIDDLEWARE = [

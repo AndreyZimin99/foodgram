@@ -6,8 +6,10 @@ from .models import Recipe, Tag, Ingredient
 class RecipeAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'author', 'text',
                     'cooking_time')
+    # list_filter = ('name', 'author', 'text',
+    #                'ingredients', 'tags', 'cooking_time')
     list_filter = ('name', 'author', 'text',
-                   'ingredients', 'tags', 'cooking_time')
+                   'ingredients', 'cooking_time')
     search_fields = ('text', 'author__username', 'title')
     ordering = ('-name',)
     raw_id_fields = ('author',)
