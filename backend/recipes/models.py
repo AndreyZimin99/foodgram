@@ -8,8 +8,8 @@ class Ingredient(models.Model):
     """Модель ингридиента."""
     name = models.TextField('Название')
     measurement_unit = models.TextField('Единица измерения')
-    amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True,
-                                 null=True, default=None)
+    # amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True,
+    #                              null=True, default=None)
 
     def __str__(self):
         return self.name
@@ -22,6 +22,19 @@ class Tag(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class RecipeIngredient(models.Model):
+    # recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
+    name = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
+    amount = models.PositiveIntegerField()
+    # measurement_unit = models.ForeignKey(Ingredient,
+    #                                      on_delete=models.CASCADE,
+    #                                      related_name='measurement_unit')
+    measurement_unit = models.TextField('Единица измерения')
+
+    def __str__(self):
+        return f'{self.name}'
 
 
 class Recipe(models.Model):
@@ -40,9 +53,8 @@ class Recipe(models.Model):
         verbose_name='Картинка',
     )
     text = models.TextField('Описание')
-    ingredients = models.ManyToManyField(Ingredient,
-                                         verbose_name='Ингредиенты',
-                                         through='RecipeIngredient')
+    ingredients = models.ManyToManyField(RecipeIngredient,
+                                         verbose_name='Ингредиенты')
     tags = models.ManyToManyField(Tag, verbose_name='Тэги')
     cooking_time = models.PositiveIntegerField('Время приготовления')
     is_favorite = models.BooleanField(default=False, verbose_name='Избранное')
@@ -51,14 +63,14 @@ class Recipe(models.Model):
         return f'{self.name} {self.author}'
 
 
-class RecipeIngredient(models.Model):
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
-    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    measurement_unit = models.TextField('Единица измерения')
+# class RecipeIngredient(models.Model):
+#     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
+#     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
+#     amount = models.DecimalField(max_digits=10, decimal_places=2)
+#     measurement_unit = models.TextField('Единица измерения')
 
-    def __str__(self):
-        return f'{self.recipe} {self.ingredient}'
+#     def __str__(self):
+#         return f'{self.recipe} {self.ingredient}'
 
 
 class Favorite(models.Model):

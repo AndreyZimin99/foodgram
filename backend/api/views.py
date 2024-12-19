@@ -118,8 +118,8 @@ class UserViewSet(
     # permission_classes = [IsAuthenticated]
     # lookup_field = 'username'
     pagination_class = UserPagination
-    filter_backends = [SearchFilter]
-    search_fields = ['username']
+    # filter_backends = [SearchFilter]
+    # search_fields = ['username']
     # pagination_class = LimitOffsetPagination
 
     # def get_permissions(self):
@@ -177,6 +177,14 @@ class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
     pagination_class = PageNumberPagination
+    pagination_class.page_size = settings.POST_PER_PAGE
+
+    def get_permissions(self):
+        if self.action == 'create':
+            return [IsAuthenticated()]
+        if self.action in ['update', 'destroy']:
+            return [IsAuthorOrReadOnly()]
+        return super().get_permissions()
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -311,6 +319,7 @@ class FavoriteViewSet(
 class ShoppingCartViewSet(viewsets.ModelViewSet):
     queryset = ShoppingCart.objects.all()
     serializer_class = ShoppingCartSerializer
+    permission_classes = [IsAuthenticated]
 
     def add_ingredients(self, request, recipe_id):
         serializer = self.get_serializer(data=request.data)

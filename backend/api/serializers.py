@@ -125,8 +125,14 @@ class IngredientInRecipeSerializer(serializers.ModelSerializer):
     # id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
     # amount = serializers.DecimalField(max_digits=10, decimal_places=2)
     # id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
-    id = serializers.IntegerField()
-    name = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
+    # id = serializers.IntegerField()
+    # name = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
+    name = serializers.SlugRelatedField(
+        slug_field='name', read_only=True
+    )
+    # measurement_unit = serializers.SlugRelatedField(
+    #     slug_field='measurement_unit', read_only=True
+    # )
     # amount = serializers.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:
@@ -172,13 +178,14 @@ class RecipeSerializer(serializers.ModelSerializer):
             ingredient_id = ingredient_data.pop('id')
             ingredient = Ingredient.objects.get(id=ingredient_id)  # попробовать сделать ингредиент через create по id
             amount = ingredient_data.pop('amount')
-            RecipeIngredient.objects.create(
-                recipe=recipe,  # возможно сделать many to many к recipeingr
-                ingredient=ingredient,
+            recipe_ingredient = RecipeIngredient.objects.create(
+                # recipe=recipe,  # возможно сделать many to many к recipeingr
+                name=ingredient,
                 amount=amount,
                 measurement_unit=ingredient.measurement_unit
             )
 
+            recipe.ingredients.add(recipe_ingredient)
         recipe.tags.set(tags_data)
         return recipe
 
