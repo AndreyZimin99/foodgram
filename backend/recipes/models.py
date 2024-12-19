@@ -54,7 +54,8 @@ class Recipe(models.Model):
 class RecipeIngredient(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
-    # amount = models.DecimalField(max_digits=10, decimal_places=2)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    measurement_unit = models.TextField('Единица измерения')
 
     def __str__(self):
         return f'{self.recipe} {self.ingredient}'
@@ -74,7 +75,7 @@ class Favorite(models.Model):
 
 
 class ShoppingCart(models.Model):
-    ingredients = models.ManyToManyField(Ingredient)
+    ingredients = models.ManyToManyField(Ingredient)  # вероятно RecipeIngredient
 
     def __str__(self):
         return f"Shopping List {self.id}"

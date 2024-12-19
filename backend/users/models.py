@@ -20,10 +20,25 @@ class User(AbstractUser):
         null=True,
         default=None
     )
-
-    @property
-    def is_admin(self):
-        return self.role == self.ADMIN or self.is_staff or self.is_superuser
+    is_subscribed = models.BooleanField(default=False, verbose_name='Подписка')
 
     def __str__(self):
         return self.username
+
+
+class Subscribtion(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='subscribers')
+    subscribing = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='subscribing'
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'subscribing'],
+                name='unique_subcribe'
+            )
+        ]

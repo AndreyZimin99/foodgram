@@ -18,12 +18,11 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
 from recipes.models import Favorite, Recipe, RecipeIngredient, ShoppingCart, Tag, Ingredient
-from subscriptions.models import Subscribtion
-from users.models import User
+from users.models import Subscribtion, User
 # from .mixins import EmailConfirmationMixin
-from .pagination import UserPagination
-from .permissions import IsAdmin, IsAdminOrReadOnly, IsAuthorOrReadOnly
-from .serializers import (
+from api.pagination import UserPagination
+from api.permissions import IsAdmin, IsAdminOrReadOnly, IsAuthorOrReadOnly
+from api.serializers import (
     FavoriteSerializer,
     RecipeSerializer,
     TagSerializer,
@@ -146,6 +145,7 @@ class UserMeView(APIView):
 
 
 class UserAvatarView(APIView):
+    """Изменение аватара пользователя."""
     permission_classes = [IsAuthenticated]
 
     def put(self, request):
@@ -157,7 +157,20 @@ class UserAvatarView(APIView):
         request.user.avatar.delete(save=False)
         request.user.avatar = None
         request.user.save()
-        return Response({'detail': 'Учетные данные не были предоставлены.'})
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class UserPasswordView(APIView):
+    """Изменение пароля пользователя."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if request.user.password == request.data['current_password']:
+            request.user.password = request.data['new_password']
+            request.user.save()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response({'message': 'Введенный пароль не совпадает с текущим'},
+                        status=status.HTTP_400_BAD_REQUEST)
 
 
 class RecipeViewSet(viewsets.ModelViewSet):

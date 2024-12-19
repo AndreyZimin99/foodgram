@@ -14,6 +14,7 @@ from api.views import (
     TagViewSet,
     TokenViewSet,
     IngredientViewSet,
+    UserPasswordView,
     UserViewSet,
     UserMeView,
     UserAvatarView,
@@ -31,11 +32,14 @@ urlpatterns = [
     path('recipes/download_shopping_cart/', ShoppingCartViewSet.as_view({'get': 'download_txt'})),
     path('auth/token/login/', TokenViewSet.as_view(), name='token'),
     path('auth/token/logout/', Logout.as_view(), name='logout'),
+    path('users/me/', UserMeView.as_view(), name='user-me'),
+    path('users/me/avatar/', UserAvatarView.as_view(), name='user-avatar'), # users/set_password/
+    path('users/set_password/',
+         UserPasswordView.as_view(),
+         name='user-avatar'),
     path('', include(router_v1.urls)),
     path('users/<int:user_id>/', include(router_v1.urls)),
     path('recipes/<int:recipe_id>/', include(router_v1.urls)),
-    path('users/me/', UserMeView.as_view(), name='user-me'),
-    path('users/me/avatar/', UserAvatarView.as_view(), name='user-avatar'),
     path('recipes/<int:recipe_id>/shopping_cart/', ShoppingCartViewSet.as_view({'post': 'add_ingredients'})),
 ]
 

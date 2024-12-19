@@ -8,8 +8,7 @@ from rest_framework.response import Response
 from rest_framework.validators import UniqueTogetherValidator
 
 from recipes.models import Recipe, RecipeIngredient, ShoppingCart, Tag, Ingredient, Favorite
-from subscriptions.models import Subscribtion
-from users.models import User
+from users.models import Subscribtion, User
 
 
 logger = logging.getLogger(__name__)
@@ -59,6 +58,8 @@ class UserSerializer(serializers.ModelSerializer):
     """Сериализатор пользователя."""
 
     password = serializers.CharField(write_only=True)
+    is_subscribed = serializers.SerializerMethodField()
+    avatar = Base64ImageField()
 
     class Meta:
         model = User
@@ -69,8 +70,16 @@ class UserSerializer(serializers.ModelSerializer):
             'first_name',
             'last_name',
             'password',
-            'avatar'
+            'is_subscribed',
+            'avatar',
         )
+
+    def get_is_subscribed(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return Subscribtion.objects.filter(
+                user=request.user, subscribing=obj).exists()
+        return False
 
 
 class TokenSerializer(serializers.Serializer):
@@ -105,10 +114,23 @@ class RecipeIngredientSerializer(serializers.ModelSerializer):
     # amount = serializers.DecimalField(max_digits=10, decimal_places=2)
     # id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
     id = serializers.IntegerField()
-    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    # amount = serializers.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:
-        fields = ['id', 'amount']
+        fields = ['id', 'amount']  # ['id', 'name', 'amount', 'measurement_unit']
+        model = RecipeIngredient
+
+
+class IngredientInRecipeSerializer(serializers.ModelSerializer):
+    # id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
+    # amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    # id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
+    id = serializers.IntegerField()
+    name = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
+    # amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        fields = ['id', 'name', 'measurement_unit', 'amount']
         model = RecipeIngredient
 
 
@@ -123,10 +145,6 @@ class RecipeSerializer(serializers.ModelSerializer):
                                               many=True)
     # tags = TagSerializer(many=True)
     image = Base64ImageField()
-    # image_url = serializers.SerializerMethodField(
-    #     'get_image_url',
-    #     read_only=True,
-    # )
     is_favorited = serializers.SerializerMethodField()
 
     class Meta:
@@ -153,12 +171,27 @@ class RecipeSerializer(serializers.ModelSerializer):
             # print(f'ing_data {ingredient_data}')
             ingredient_id = ingredient_data.pop('id')
             ingredient = Ingredient.objects.get(id=ingredient_id)  # попробовать сделать ингредиент через create по id
-            ingredient.amount = ingredient_data.pop('amount')
-            RecipeIngredient.objects.create(recipe=recipe,  # возможно сделать many to many к recipeingr
-                                            ingredient=ingredient,)
+            amount = ingredient_data.pop('amount')
+            RecipeIngredient.objects.create(
+                recipe=recipe,  # возможно сделать many to many к recipeingr
+                ingredient=ingredient,
+                amount=amount,
+                measurement_unit=ingredient.measurement_unit
+            )
 
         recipe.tags.set(tags_data)
         return recipe
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['author'] = UserSerializer(instance.author).data
+        representation['tags'] = TagSerializer(instance.tags.all(),
+                                               many=True).data
+        print(f'some data{instance.ingredients.all()}')
+        representation['ingredients'] = IngredientInRecipeSerializer(
+            instance.ingredients.all(),
+            many=True).data
+        return representation
 
     # def get_image_url(self, obj):
     #     if obj.image:
@@ -229,16 +262,16 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             )
         ]
 
-    # def validate_subscribing(self, value):
-    #     subscriber = self.context['request'].user
-    #     subscribing = value
-    #     if not User.objects.filter(username=subscribing).exists():
-    #         raise serializers.ValidationError(
-    #             'Пользователь с таким именем не найден.')
-    #     if subscriber == subscribing:
-    #         raise serializers.ValidationError(
-    #             'Вы не можете подпитсаться на себя.')
-    #     return subscribing
+    def validate_subscribing(self, value):
+        subscriber = self.context['request'].user
+        subscribing = value
+        if not User.objects.filter(username=subscribing).exists():
+            raise serializers.ValidationError(
+                'Пользователь с таким именем не найден.')
+        if subscriber == subscribing:
+            raise serializers.ValidationError(
+                'Вы не можете подписаться на себя.')
+        return subscribing
 
 
 class ShoppingCartSerializer(serializers.ModelSerializer):
