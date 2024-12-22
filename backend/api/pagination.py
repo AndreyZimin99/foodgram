@@ -3,7 +3,7 @@ from rest_framework.pagination import (LimitOffsetPagination,
                                        PageNumberPagination)
 
 
-class UserPagination(LimitOffsetPagination):
+class CustomPagination(LimitOffsetPagination):
     """Пагинация для UserViewSet."""
 
     default_limit = settings.POST_PER_PAGE

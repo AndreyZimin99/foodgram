@@ -45,7 +45,7 @@ class Recipe(models.Model):
         on_delete=models.CASCADE,
         verbose_name='Автор рецепта',
     )
-    name = models.TextField('Название') # исправить на name
+    name = models.TextField('Название рецепта')
     image = models.ImageField(
         upload_to='recipes/images/',
         null=True,
@@ -57,7 +57,9 @@ class Recipe(models.Model):
                                          verbose_name='Ингредиенты')
     tags = models.ManyToManyField(Tag, verbose_name='Тэги')
     cooking_time = models.PositiveIntegerField('Время приготовления')
-    is_favorite = models.BooleanField(default=False, verbose_name='Избранное')
+    is_favorited = models.BooleanField(default=False, verbose_name='Избранное')
+    is_in_shopping_cart = models.BooleanField(default=False,
+                                              verbose_name='Список покупок')
 
     def __str__(self):
         return f'{self.name} {self.author}'

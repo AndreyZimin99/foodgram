@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.validators import UniqueTogetherValidator
 
 from recipes.models import Recipe, RecipeIngredient, ShoppingCart, Tag, Ingredient, Favorite
-from users.models import Subscribtion, User
+from users.models import Subscription, User
 
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ class UserSerializer(serializers.ModelSerializer):
     def get_is_subscribed(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            return Subscribtion.objects.filter(
+            return Subscription.objects.filter(
                 user=request.user, subscribing=obj).exists()
         return False
 
@@ -152,6 +152,7 @@ class RecipeSerializer(serializers.ModelSerializer):
     # tags = TagSerializer(many=True)
     image = Base64ImageField()
     is_favorited = serializers.SerializerMethodField()
+    # is_in_shopping_cart = serializers.SerializerMethodField()
 
     class Meta:
         fields = [
@@ -164,6 +165,7 @@ class RecipeSerializer(serializers.ModelSerializer):
             'image',
             'text',
             'cooking_time',
+            'is_in_shopping_cart',
         ]
         model = Recipe
 
@@ -189,21 +191,43 @@ class RecipeSerializer(serializers.ModelSerializer):
         recipe.tags.set(tags_data)
         return recipe
 
+    def update(self, instance, validated_data):
+        instance.image = validated_data.get('image', instance.image)
+        instance.name = validated_data.get('name', instance.name)
+        instance.text = validated_data.get('text', instance.text)
+        instance.cooking_time = validated_data.get(
+            'cooking_time', instance.cooking_time
+        )
+        ingredients_data = validated_data.pop('ingredients')
+        # print(f'val_dat1 {validated_data}')
+        tags_data = validated_data.pop('tags')
+        ingredients_lst = []
+        for ingredient_data in ingredients_data:
+            ingredient_id = ingredient_data.pop('id')
+            ingredient = Ingredient.objects.get(id=ingredient_id)
+            amount = ingredient_data.pop('amount')
+            recipe_ingredient = RecipeIngredient.objects.create(
+                name=ingredient,
+                amount=amount,
+                measurement_unit=ingredient.measurement_unit
+            )
+
+            ingredients_lst.append(recipe_ingredient)
+
+        instance.ingredients.set(ingredients_lst)
+        instance.tags.set(tags_data)
+        instance.save()
+        return instance
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['author'] = UserSerializer(instance.author).data
         representation['tags'] = TagSerializer(instance.tags.all(),
                                                many=True).data
-        print(f'some data{instance.ingredients.all()}')
         representation['ingredients'] = IngredientInRecipeSerializer(
             instance.ingredients.all(),
             many=True).data
         return representation
-
-    # def get_image_url(self, obj):
-    #     if obj.image:
-    #         return obj.image.url
-    #     return None
 
     def get_is_favorited(self, obj):
         request = self.context.get('request')
@@ -212,14 +236,12 @@ class RecipeSerializer(serializers.ModelSerializer):
                 user=request.user, recipe=obj).exists()
         return False
 
-
-    # попробовать amount через get amount либо вообще get ingredients
-    # в теории попробовать вернуть для get ingr объект RecipeIngr
-
-    # def get_amount(self, obj):
-    #     if obj.image:
-    #         return obj.image.url
-    #     return None
+    # def get_is_in_shopping_cart(self, obj):
+    #     request = self.context.get('request')
+    #     if request.user.is_authenticated:
+    #         return ShoppingCart.objects.filter(
+    #             user=request.user, recipe=obj).exists()
+    #     return False
 
 
 class FavoriteSerializer(serializers.ModelSerializer):
@@ -232,7 +254,6 @@ class FavoriteSerializer(serializers.ModelSerializer):
         slug_field='name',
         read_only=True,
         default=None
-        # queryset=User.objects.all()
     )
 
     class Meta:
@@ -256,29 +277,44 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         slug_field='username',
         read_only=True,
         default=serializers.CurrentUserDefault()
-        # queryset=User.objects.all()
     )
 
     class Meta:
-        model = Subscribtion
+        model = Subscription
         fields = '__all__'
         validators = [
             UniqueTogetherValidator(
-                queryset=Subscribtion.objects.all(),
+                queryset=Subscription.objects.all(),
                 fields=('user', 'subscribing')
             )
         ]
 
-    def validate_subscribing(self, value):
-        subscriber = self.context['request'].user
-        subscribing = value
-        if not User.objects.filter(username=subscribing).exists():
-            raise serializers.ValidationError(
-                'Пользователь с таким именем не найден.')
-        if subscriber == subscribing:
-            raise serializers.ValidationError(
-                'Вы не можете подписаться на себя.')
-        return subscribing
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation = UserSerializer(instance.subscribing).data
+        recipes_limit = self.context.get('recipes_limit', None)
+        if recipes_limit:
+            representation['recipes'] = RecipeSerializer(
+                Recipe.objects.filter(
+                    author=instance.subscribing)[:recipes_limit],
+                many=True
+            ).data
+        else:
+            representation['recipes'] = RecipeSerializer(
+                Recipe.objects.filter(
+                    author=instance.subscribing),
+                many=True
+            ).data
+        representation['recipes_count'] = Recipe.objects.filter(
+            author=instance.subscribing).count()
+        return representation
+
+
+class SubscriptionListSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Subscription
+        fields = ['user']
 
 
 class ShoppingCartSerializer(serializers.ModelSerializer):

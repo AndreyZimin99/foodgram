@@ -2,11 +2,13 @@ from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status, views, viewsets
 # from rest_framework import filters, mixins, permissions, viewsets
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter
 from rest_framework.pagination import (LimitOffsetPagination,
                                        PageNumberPagination)
@@ -17,10 +19,18 @@ from rest_framework.views import APIView
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
-from recipes.models import Favorite, Recipe, RecipeIngredient, ShoppingCart, Tag, Ingredient
-from users.models import Subscribtion, User
+from recipes.models import (
+    Favorite,
+    Recipe,
+    RecipeIngredient,
+    ShoppingCart,
+    Tag,
+    Ingredient
+)
+from users.models import Subscription, User
 # from .mixins import EmailConfirmationMixin
-from api.pagination import UserPagination
+from api.filters import RecipeFilter
+from api.pagination import CustomPagination
 from api.permissions import IsAdmin, IsAdminOrReadOnly, IsAuthorOrReadOnly
 from api.serializers import (
     FavoriteSerializer,
@@ -29,6 +39,7 @@ from api.serializers import (
     IngredientSerializer,
     ShoppingCartSerializer,
     SubscriptionSerializer,
+    SubscriptionListSerializer,
     # SignupSerializer,
     TokenSerializer,
     UserSerializer,
@@ -117,7 +128,7 @@ class UserViewSet(
     # serializer_class = UserSerializer
     # permission_classes = [IsAuthenticated]
     # lookup_field = 'username'
-    pagination_class = UserPagination
+    pagination_class = CustomPagination
     # filter_backends = [SearchFilter]
     # search_fields = ['username']
     # pagination_class = LimitOffsetPagination
@@ -176,13 +187,22 @@ class UserPasswordView(APIView):
 class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
-    pagination_class = PageNumberPagination
-    pagination_class.page_size = settings.POST_PER_PAGE
+    pagination_class = CustomPagination
+    # pagination_class.page_size = settings.POST_PER_PAGE
+    filter_backends = (DjangoFilterBackend,)
+    # filterset_fields = (
+    #     'is_favorited',
+    #     'is_in_shopping_cart',
+    #     'author',
+    #     'tags'
+    # )
+    filterset_class = RecipeFilter
+    http_method_names = ['get', 'post', 'delete', 'patch']
 
     def get_permissions(self):
-        if self.action == 'create':
+        if self.request == 'post':
             return [IsAuthenticated()]
-        if self.action in ['update', 'destroy']:
+        if self.request in ['patch', 'delete']:
             return [IsAuthorOrReadOnly()]
         return super().get_permissions()
 
@@ -235,9 +255,17 @@ class IngredientViewSet(
 
 
 # class SubcribtionViewSet(CreateListViewSet):
-class SubcribtionViewSet(CreateRetrieveListDestroyViewSet):
-    queryset = Subscribtion.objects.all()
+class SubcribtionCreateDestroyViewSet(
+    mixins.CreateModelMixin,
+    # mixins.RetrieveModelMixin,
+    # mixins.ListModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet
+):
+    permission_classes = [IsAuthenticated]
+    queryset = Subscription.objects.all()
     serializer_class = SubscriptionSerializer
+    pagination_class = CustomPagination
     # filter_backends = [SearchFilter]
     # http_method_names = ['post', 'get', 'delete']
     # search_fields = ('subscribing__username',)
@@ -248,9 +276,13 @@ class SubcribtionViewSet(CreateRetrieveListDestroyViewSet):
             User,
             id=self.kwargs['user_id'],
         )
+        if user == subscribing:
+            raise ValidationError(
+                'Вы не можете подписаться на себя.'
+            )
         serializer.save(user=user, subscribing=subscribing)
 
-    def delete(self, request, *args, **kwargs):
+    def destroy(self, request, *args, **kwargs):
         try:
             user = request.user
             subscribing = get_object_or_404(
@@ -258,14 +290,54 @@ class SubcribtionViewSet(CreateRetrieveListDestroyViewSet):
                 id=self.kwargs['user_id'],
             )
             instance = get_object_or_404(
-                Subscribtion,
+                Subscription,
                 user=user,
                 subscribing=subscribing
             )
             self.perform_destroy(instance)
             return Response(status=status.HTTP_204_NO_CONTENT)
-        except Subscribtion.DoesNotExist:
+        except Subscription.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
+
+    def get_context_data(self, request, *args, **kwargs):
+        recipes_limit = request.query_params.get('recipes_limit', None)
+        response = self.retrieve(request, *args, **kwargs)
+
+        response.data['recipes'] = SubscriptionSerializer(
+            response.data,
+            context={'recipes_limit': recipes_limit}
+        ).data['recipes']
+        return response
+
+
+# class SubcribtionListViewSet(
+#     # mixins.CreateModelMixin,
+#     mixins.RetrieveModelMixin,
+#     mixins.ListModelMixin,
+#     # mixins.DestroyModelMixin,
+#     viewsets.GenericViewSet
+# ):
+#     permission_classes = [IsAuthenticated]
+#     # queryset = Subscribtion.objects.all()
+#     serializer_class = SubscriptionListSerializer
+#     pagination_class = CustomPagination
+
+#     def get_queryset(self):
+#         return Subscribtion.objects.filter(
+#             user=self.request.user
+#         )
+
+class SubscriptionListViewSet(mixins.ListModelMixin, viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+    pagination_class = CustomPagination
+
+    def list(self, request):
+        subscriptions = Subscription.objects.filter(user=request.user)
+        paginator = self.pagination_class()
+        paginated_subscriptions = paginator.paginate_queryset(subscriptions,
+                                                              request)
+        serializer = SubscriptionSerializer(paginated_subscriptions, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
 
 class FavoriteViewSet(
@@ -274,7 +346,15 @@ class FavoriteViewSet(
     viewsets.GenericViewSet
 ):
     permission_classes = [IsAuthenticated]
+    queryset = Favorite.objects.all()
     serializer_class = FavoriteSerializer
+
+    def get_permissions(self):
+        if self.request == 'post':
+            return [IsAuthenticated()]
+        if self.request == 'delete':
+            return [IsAuthorOrReadOnly()]
+        return super().get_permissions()
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -284,7 +364,7 @@ class FavoriteViewSet(
         )
         serializer.save(user=user, recipe=recipe)
 
-    def destroy(self, request):
+    def destroy(self, request, *args, **kwargs):
         try:
             user = request.user
             recipe = get_object_or_404(
@@ -358,14 +438,15 @@ class ShoppingCartViewSet(viewsets.ModelViewSet):
         shopping_carts = ShoppingCart.objects.all()
 
         response = HttpResponse(content_type='text/plain')
-        response['Content-Disposition'] = f'attachment; filename="shopping_cart.txt"'
+        response['Content-Disposition'] = 'attachment; \
+                                           filename="shopping_cart.txt"'
 
-        content = f"Shopping cart\n\n"
+        content = 'Shopping cart\n'
 
         for shopping_cart in shopping_carts:
             for ingredient in shopping_cart.ingredients.all():
                 ing_data = f'{ingredient.name} {ingredient.amount} {ingredient.measurement_unit}'
-                content += ing_data + "\n"
+                content += ing_data + '\n'
 
         response.write(content)
 

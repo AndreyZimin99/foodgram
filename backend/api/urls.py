@@ -9,7 +9,8 @@ from api.views import (
     Logout,
     RecipeViewSet,
     ShoppingCartViewSet,
-    SubcribtionViewSet,
+    SubcribtionCreateDestroyViewSet,
+    SubscriptionListViewSet,
     # SignupViewSet,
     TagViewSet,
     TokenViewSet,
@@ -25,22 +26,45 @@ router_v1.register('users', UserViewSet, basename='users')
 router_v1.register('recipes', RecipeViewSet, basename='recipes')
 router_v1.register('tags', TagViewSet, basename='tags')
 router_v1.register('ingredients', IngredientViewSet, basename='ingredients')
-router_v1.register('subscribe', SubcribtionViewSet, basename='subscribe')
-router_v1.register('favorite', FavoriteViewSet, basename='favorite')
+# router_v1.register('subscribe',
+#                    SubcribtionCreateDestroyViewSet,
+#                    basename='subscribe')
+# router_v1.register('subscriptions',
+#                    SubcribtionListViewSet,
+#                    basename='subscriptions')
+# router_v1.register('favorite', FavoriteViewSet, basename='favorite')
 
 urlpatterns = [
-    path('recipes/download_shopping_cart/', ShoppingCartViewSet.as_view({'get': 'download_txt'})),
     path('auth/token/login/', TokenViewSet.as_view(), name='token'),
     path('auth/token/logout/', Logout.as_view(), name='logout'),
     path('users/me/', UserMeView.as_view(), name='user-me'),
-    path('users/me/avatar/', UserAvatarView.as_view(), name='user-avatar'), # users/set_password/
+    path('users/me/avatar/', UserAvatarView.as_view(), name='user-avatar'),
     path('users/set_password/',
          UserPasswordView.as_view(),
          name='user-avatar'),
+    path('users/subscriptions/',
+         SubscriptionListViewSet.as_view({'get': 'list'}),
+         name='subcriptions'),
+    path(
+        'users/<int:user_id>/subscribe/',
+        SubcribtionCreateDestroyViewSet.as_view(
+            {'post': 'create', 'delete': 'destroy'}
+        ),
+        name='subcribe'
+    ),
+    path(
+        'recipes/<int:recipe_id>/favorite/',
+        FavoriteViewSet.as_view(
+            {'post': 'create', 'delete': 'destroy'}
+        ),
+        name='favorite'
+    ),
+    path('recipes/download_shopping_cart/',
+         ShoppingCartViewSet.as_view({'get': 'download_txt'})),
     path('', include(router_v1.urls)),
-    path('users/<int:user_id>/', include(router_v1.urls)),
-    path('recipes/<int:recipe_id>/', include(router_v1.urls)),
-    path('recipes/<int:recipe_id>/shopping_cart/', ShoppingCartViewSet.as_view({'post': 'add_ingredients'})),
+    path('users/', include(router_v1.urls)),
+    path('recipes/<int:recipe_id>/shopping_cart/',
+         ShoppingCartViewSet.as_view({'post': 'add_ingredients'})),
 ]
 
 # if settings.DEBUG:
