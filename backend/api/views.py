@@ -17,13 +17,14 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
 from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
+from hashids import Hashids
 
 from recipes.models import (
     Favorite,
     Recipe,
     RecipeIngredient,
     ShoppingCart,
+    ShortLink,
     Tag,
     Ingredient
 )
@@ -40,6 +41,7 @@ from api.serializers import (
     ShoppingCartSerializer,
     SubscriptionSerializer,
     SubscriptionListSerializer,
+    ShortLinkSerializer,
     # SignupSerializer,
     TokenSerializer,
     UserSerializer,
@@ -50,6 +52,12 @@ from api.serializers import (
 # class CreateListViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
 #                         viewsets.GenericViewSet):
 #     pass
+
+hashids = Hashids(salt='FG', min_length=1)
+
+
+def generate_unique_string(number):
+    return hashids.encode(number)
 
 
 class CreateRetrieveListDestroyViewSet(
@@ -188,14 +196,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
     pagination_class = CustomPagination
-    # pagination_class.page_size = settings.POST_PER_PAGE
     filter_backends = (DjangoFilterBackend,)
-    # filterset_fields = (
-    #     'is_favorited',
-    #     'is_in_shopping_cart',
-    #     'author',
-    #     'tags'
-    # )
     filterset_class = RecipeFilter
     http_method_names = ['get', 'post', 'delete', 'patch']
 
@@ -209,56 +210,27 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
-    # @action(detail=True, methods=['post'], url_path='shopping_cart')
-    # def add_to_shopping_list(self, request, pk=None):
-    #     recipe = get_object_or_404(Recipe, id=pk)
-    #     # shopping_list = [{"name": ingredient.name, "amount": ingredient.amount, "measurement_unit": ingredient.measurement_unit}
-    #     #                  for ingredient in recipe.ingredients.all()]
-    #     shopping_list = [ingredient for ingredient in recipe.ingredients.all()]
-    #     return Response(shopping_list, status=status.HTTP_201_CREATED)
-
 
 class TagViewSet(
-    # mixins.CreateModelMixin,
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin,
-    # mixins.DestroyModelMixin,
     viewsets.GenericViewSet
 ):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-    # permission_classes = [AllowAny]
-    # pagination_class = PageNumberPagination
-
-    # def get_permissions(self):
-    #     if self.action in ['create', 'destroy']:
-    #         return [IsAdmin()]
-    #     return super().get_permissions()
 
 
 class IngredientViewSet(
-    # mixins.CreateModelMixin,
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin,
-    # mixins.DestroyModelMixin,
     viewsets.GenericViewSet
 ):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
-    # permission_classes = [AllowAny]
-    # pagination_class = PageNumberPagination
-
-    # def get_permissions(self):
-    #     if self.action in ['create', 'destroy']:
-    #         return [IsAdmin()]
-    #     return super().get_permissions()
 
 
-# class SubcribtionViewSet(CreateListViewSet):
 class SubcribtionCreateDestroyViewSet(
     mixins.CreateModelMixin,
-    # mixins.RetrieveModelMixin,
-    # mixins.ListModelMixin,
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet
 ):
@@ -266,9 +238,6 @@ class SubcribtionCreateDestroyViewSet(
     queryset = Subscription.objects.all()
     serializer_class = SubscriptionSerializer
     pagination_class = CustomPagination
-    # filter_backends = [SearchFilter]
-    # http_method_names = ['post', 'get', 'delete']
-    # search_fields = ('subscribing__username',)
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -309,23 +278,6 @@ class SubcribtionCreateDestroyViewSet(
         ).data['recipes']
         return response
 
-
-# class SubcribtionListViewSet(
-#     # mixins.CreateModelMixin,
-#     mixins.RetrieveModelMixin,
-#     mixins.ListModelMixin,
-#     # mixins.DestroyModelMixin,
-#     viewsets.GenericViewSet
-# ):
-#     permission_classes = [IsAuthenticated]
-#     # queryset = Subscribtion.objects.all()
-#     serializer_class = SubscriptionListSerializer
-#     pagination_class = CustomPagination
-
-#     def get_queryset(self):
-#         return Subscribtion.objects.filter(
-#             user=self.request.user
-#         )
 
 class SubscriptionListViewSet(mixins.ListModelMixin, viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
@@ -379,75 +331,94 @@ class FavoriteViewSet(
             return Response(status=status.HTTP_404_NOT_FOUND)
 
 
-# def generate_pdf(request, recipe_id):
-#     recipe = Recipe.objects.get(id=recipe_id)
-#     response = HttpResponse(content_type='application/pdf')
-#     response['Content-Disposition'] = f'attachment; filename="{recipe.title}.pdf"'
-
-#     p = canvas.Canvas(response, pagesize=letter)
-#     p.drawString(100, 750, f"Recipe: {recipe.title}")
-
-#     y_position = 730
-#     for ingredient in recipe.ingredients.all():
-#         p.drawString(100, y_position, f"{ingredient.quantity} {ingredient.unit} of {ingredient.name}")
-#         y_position -= 20
-
-#     p.showPage()
-#     p.save()
-#     return response
-
-class ShoppingCartViewSet(viewsets.ModelViewSet):
+class ShoppingCartViewSet(
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet
+):
     queryset = ShoppingCart.objects.all()
     serializer_class = ShoppingCartSerializer
     permission_classes = [IsAuthenticated]
 
-    def add_ingredients(self, request, recipe_id):
-        serializer = self.get_serializer(data=request.data)
-        recipe = Recipe.objects.get(id=recipe_id)
-        shopping_list = ShoppingCart.objects.create()
-        shopping_list.ingredients.set(recipe.ingredients.all())
-        shopping_list.save()
-        serializer = ShoppingCartSerializer(shopping_list)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    def get_permissions(self):
+        if self.request == 'post':
+            return [IsAuthenticated()]
+        if self.request == 'delete':
+            return [IsAuthorOrReadOnly()]
+        return super().get_permissions()
 
-    # def download_pdf(self, request):
-    #     shoppings_cart = ShoppingCart.objects.all()
-    #     print(f'shopping_cart {shoppings_cart}')
-    #     response = HttpResponse(content_type='application/pdf')
-    #     response['Content-Disposition'] = 'attachment; filename="shopping_cart.pdf"'
+    def perform_create(self, serializer):
+        user = self.request.user
+        recipe = get_object_or_404(
+            Recipe,
+            id=self.kwargs['recipe_id'],
+        )
+        serializer.save(user=user, recipe=recipe)
 
-    #     p = canvas.Canvas(response, pagesize=letter)
-    #     # p.drawString(100, 750, f"Shopping Cart")
-    #     p.setFont('Helvetica', 16)
-    #     y_position = 750
-    #     for shopping_cart in shoppings_cart:
-    #         for ingredient in shopping_cart.ingredients.all():
-    #             ing_data = [ingredient.name,
-    #                         str(ingredient.amount),
-    #                         ingredient.measurement_unit]
-    #             p.drawString(100, y_position, ' '.join(ing_data))
-    #             y_position -= 20
-
-    #     p.showPage()
-    #     p.save()
-    #     return response
+    def destroy(self, request, *args, **kwargs):
+        try:
+            user = request.user
+            recipe = get_object_or_404(
+                Recipe,
+                id=self.kwargs['recipe_id'],
+            )
+            shoping_cart = ShoppingCart.objects.get(user=user,
+                                                    recipe=recipe)
+            shoping_cart.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except ShoppingCart.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
     from django.http import HttpResponse
 
     def download_txt(self, request):
-        shopping_carts = ShoppingCart.objects.all()
+        shopping_carts = ShoppingCart.objects.filter(user=request.user)
+        recipes = []
+        for shopping_cart in shopping_carts:
+            recipes.append(shopping_cart.recipe)
 
         response = HttpResponse(content_type='text/plain')
         response['Content-Disposition'] = 'attachment; \
                                            filename="shopping_cart.txt"'
 
-        content = 'Shopping cart\n'
+        content = 'Shopping_cart\n'
+        ingredients = []
+        for recipe in recipes:
+            for ingredient in recipe.ingredients.all():
+                ingredients.append(ingredient)
 
-        for shopping_cart in shopping_carts:
-            for ingredient in shopping_cart.ingredients.all():
-                ing_data = f'{ingredient.name} {ingredient.amount} {ingredient.measurement_unit}'
-                content += ing_data + '\n'
+        combined_ingredients = {}
+        for ingredient in ingredients:
+            name = ingredient.name.name
+            amount = ingredient.amount
+            if name in combined_ingredients:
+                combined_ingredients[name]['amount'] += amount
+            else:
+                combined_ingredients[name] = {
+                    'name': name,
+                    'measurement_unit': ingredient.measurement_unit,
+                    'amount': amount
+                }
+        ingredient_list = list(combined_ingredients.values())
+        for ingredient in ingredient_list:
+            ingredient_data = f'{ingredient["name"]} \
+({ingredient["measurement_unit"]}) - {ingredient["amount"]} '
+            content += ingredient_data + '\n'
 
         response.write(content)
-
         return response
+
+
+class ShortLinkView(viewsets.GenericViewSet):
+    serializer_class = ShortLinkSerializer
+
+    def get(self, request, recipe_id):
+        unique_string = generate_unique_string(recipe_id)
+        short_link = f"https://foodgram.org/s/{unique_string}"
+        short_link_instance, created = ShortLink.objects.get_or_create(
+            recipe_id=recipe_id,
+            defaults={'short_link': short_link}
+        )
+
+        return Response({"short-link": short_link})

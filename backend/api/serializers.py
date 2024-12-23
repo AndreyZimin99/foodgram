@@ -7,7 +7,7 @@ from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.validators import UniqueTogetherValidator
 
-from recipes.models import Recipe, RecipeIngredient, ShoppingCart, Tag, Ingredient, Favorite
+from recipes.models import Recipe, RecipeIngredient, ShoppingCart, Tag, Ingredient, Favorite, ShortLink
 from users.models import Subscription, User
 
 
@@ -94,10 +94,8 @@ class TokenSerializer(serializers.Serializer):
 class IngredientSerializer(serializers.ModelSerializer):
     """Сериализатор для ингридиента."""
 
-    # amount = serializers.SerializerMethodField()
-
     class Meta:
-        fields = ['id', 'name', 'measurement_unit']
+        fields = '__all__'
         model = Ingredient
 
 
@@ -149,10 +147,9 @@ class RecipeSerializer(serializers.ModelSerializer):
     ingredients = RecipeIngredientSerializer(many=True)
     tags = serializers.PrimaryKeyRelatedField(queryset=Tag.objects.all(),
                                               many=True)
-    # tags = TagSerializer(many=True)
     image = Base64ImageField()
     is_favorited = serializers.SerializerMethodField()
-    # is_in_shopping_cart = serializers.SerializerMethodField()
+    is_in_shopping_cart = serializers.SerializerMethodField()
 
     class Meta:
         fields = [
@@ -170,18 +167,14 @@ class RecipeSerializer(serializers.ModelSerializer):
         model = Recipe
 
     def create(self, validated_data):
-        # print(f'val_dat {validated_data}')
         ingredients_data = validated_data.pop('ingredients')
-        # print(f'val_dat1 {validated_data}')
         tags_data = validated_data.pop('tags')
         recipe = Recipe.objects.create(**validated_data)
         for ingredient_data in ingredients_data:
-            # print(f'ing_data {ingredient_data}')
             ingredient_id = ingredient_data.pop('id')
-            ingredient = Ingredient.objects.get(id=ingredient_id)  # попробовать сделать ингредиент через create по id
+            ingredient = Ingredient.objects.get(id=ingredient_id)
             amount = ingredient_data.pop('amount')
             recipe_ingredient = RecipeIngredient.objects.create(
-                # recipe=recipe,  # возможно сделать many to many к recipeingr
                 name=ingredient,
                 amount=amount,
                 measurement_unit=ingredient.measurement_unit
@@ -199,7 +192,6 @@ class RecipeSerializer(serializers.ModelSerializer):
             'cooking_time', instance.cooking_time
         )
         ingredients_data = validated_data.pop('ingredients')
-        # print(f'val_dat1 {validated_data}')
         tags_data = validated_data.pop('tags')
         ingredients_lst = []
         for ingredient_data in ingredients_data:
@@ -236,12 +228,24 @@ class RecipeSerializer(serializers.ModelSerializer):
                 user=request.user, recipe=obj).exists()
         return False
 
-    # def get_is_in_shopping_cart(self, obj):
-    #     request = self.context.get('request')
-    #     if request.user.is_authenticated:
-    #         return ShoppingCart.objects.filter(
-    #             user=request.user, recipe=obj).exists()
-    #     return False
+    def get_is_in_shopping_cart(self, obj):
+        request = self.context.get('request')
+        if request.user.is_authenticated:
+            return ShoppingCart.objects.filter(
+                user=request.user, recipe=obj).exists()
+        return False
+
+
+class RecipeLessFieldsSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        fields = [
+            'id',
+            'name',
+            'image',
+            'cooking_time',
+        ]
+        model = Recipe
 
 
 class FavoriteSerializer(serializers.ModelSerializer):
@@ -265,6 +269,11 @@ class FavoriteSerializer(serializers.ModelSerializer):
                 fields=('user', 'recipe')
             )
         ]
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation = RecipeLessFieldsSerializer(instance.recipe).data
+        return representation
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):
@@ -318,8 +327,36 @@ class SubscriptionListSerializer(serializers.ModelSerializer):
 
 
 class ShoppingCartSerializer(serializers.ModelSerializer):
-    ingredients = IngredientSerializer(many=True)
+    user = serializers.SlugRelatedField(
+        slug_field='username',
+        read_only=True,
+        default=serializers.CurrentUserDefault()
+    )
+    recipe = serializers.SlugRelatedField(
+        slug_field='name',
+        read_only=True,
+        default=None
+    )
 
     class Meta:
         model = ShoppingCart
         fields = '__all__'
+        validators = [
+            UniqueTogetherValidator(
+                queryset=ShoppingCart.objects.all(),
+                fields=('user', 'recipe')
+            )
+        ]
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation = RecipeLessFieldsSerializer(instance.recipe).data
+        return representation
+
+
+class ShortLinkSerializer(serializers.Serializer):
+    short_link = serializers.CharField()
+
+    class Meta:
+        model = ShortLink
+        fields = 'short_link'

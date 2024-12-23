@@ -8,8 +8,6 @@ class Ingredient(models.Model):
     """Модель ингридиента."""
     name = models.TextField('Название')
     measurement_unit = models.TextField('Единица измерения')
-    # amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True,
-    #                              null=True, default=None)
 
     def __str__(self):
         return self.name
@@ -25,12 +23,8 @@ class Tag(models.Model):
 
 
 class RecipeIngredient(models.Model):
-    # recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
     name = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
     amount = models.PositiveIntegerField()
-    # measurement_unit = models.ForeignKey(Ingredient,
-    #                                      on_delete=models.CASCADE,
-    #                                      related_name='measurement_unit')
     measurement_unit = models.TextField('Единица измерения')
 
     def __str__(self):
@@ -54,8 +48,9 @@ class Recipe(models.Model):
     )
     text = models.TextField('Описание')
     ingredients = models.ManyToManyField(RecipeIngredient,
-                                         verbose_name='Ингредиенты')
-    tags = models.ManyToManyField(Tag, verbose_name='Тэги')
+                                         verbose_name='Ингредиенты',
+                                         blank=False)
+    tags = models.ManyToManyField(Tag, verbose_name='Тэги', blank=False)
     cooking_time = models.PositiveIntegerField('Время приготовления')
     is_favorited = models.BooleanField(default=False, verbose_name='Избранное')
     is_in_shopping_cart = models.BooleanField(default=False,
@@ -63,16 +58,6 @@ class Recipe(models.Model):
 
     def __str__(self):
         return f'{self.name} {self.author}'
-
-
-# class RecipeIngredient(models.Model):
-#     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
-#     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
-#     amount = models.DecimalField(max_digits=10, decimal_places=2)
-#     measurement_unit = models.TextField('Единица измерения')
-
-#     def __str__(self):
-#         return f'{self.recipe} {self.ingredient}'
 
 
 class Favorite(models.Model):
@@ -89,7 +74,24 @@ class Favorite(models.Model):
 
 
 class ShoppingCart(models.Model):
-    ingredients = models.ManyToManyField(Ingredient)  # вероятно RecipeIngredient
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'recipe'],
+                name='unique_recipe'
+            )
+        ]
 
     def __str__(self):
         return f"Shopping List {self.id}"
+
+
+class ShortLink(models.Model):
+    recipe_id = models.PositiveIntegerField(unique=True)
+    short_link = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.short_link

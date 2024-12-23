@@ -9,6 +9,7 @@ from api.views import (
     Logout,
     RecipeViewSet,
     ShoppingCartViewSet,
+    ShortLinkView,
     SubcribtionCreateDestroyViewSet,
     SubscriptionListViewSet,
     # SignupViewSet,
@@ -35,16 +36,13 @@ router_v1.register('ingredients', IngredientViewSet, basename='ingredients')
 # router_v1.register('favorite', FavoriteViewSet, basename='favorite')
 
 urlpatterns = [
-    path('auth/token/login/', TokenViewSet.as_view(), name='token'),
+    path('auth/token/login/', TokenViewSet.as_view(), name='login'),
     path('auth/token/logout/', Logout.as_view(), name='logout'),
     path('users/me/', UserMeView.as_view(), name='user-me'),
     path('users/me/avatar/', UserAvatarView.as_view(), name='user-avatar'),
     path('users/set_password/',
          UserPasswordView.as_view(),
-         name='user-avatar'),
-    path('users/subscriptions/',
-         SubscriptionListViewSet.as_view({'get': 'list'}),
-         name='subcriptions'),
+         name='user-password'),
     path(
         'users/<int:user_id>/subscribe/',
         SubcribtionCreateDestroyViewSet.as_view(
@@ -52,6 +50,9 @@ urlpatterns = [
         ),
         name='subcribe'
     ),
+    path('users/subscriptions/',
+         SubscriptionListViewSet.as_view({'get': 'list'}),
+         name='subcriptions'),
     path(
         'recipes/<int:recipe_id>/favorite/',
         FavoriteViewSet.as_view(
@@ -59,12 +60,22 @@ urlpatterns = [
         ),
         name='favorite'
     ),
+    path(
+        'recipes/<int:recipe_id>/shopping_cart/',
+        ShoppingCartViewSet.as_view(
+            {'post': 'create', 'delete': 'destroy'}
+        ),
+        name='shopping_cart'
+    ),
     path('recipes/download_shopping_cart/',
          ShoppingCartViewSet.as_view({'get': 'download_txt'})),
+    path('recipes/<int:recipe_id>/get-link/',
+         ShortLinkView.as_view({'get': 'get'}), name='short-link'),
+
     path('', include(router_v1.urls)),
-    path('users/', include(router_v1.urls)),
-    path('recipes/<int:recipe_id>/shopping_cart/',
-         ShoppingCartViewSet.as_view({'post': 'add_ingredients'})),
+    # path('users/', include(router_v1.urls)),
+    # path('recipes/<int:recipe_id>/shopping_cart/',
+    #      ShoppingCartViewSet.as_view({'post': 'add_ingredients'})),
 ]
 
 # if settings.DEBUG:
