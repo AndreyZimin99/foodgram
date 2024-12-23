@@ -7,7 +7,8 @@ from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.validators import UniqueTogetherValidator
 
-from recipes.models import Recipe, RecipeIngredient, ShoppingCart, Tag, Ingredient, Favorite, ShortLink
+from recipes.models import (Recipe, RecipeIngredient, ShoppingCart,
+                            Tag, Ingredient, Favorite, ShortLink)
 from users.models import Subscription, User
 
 
@@ -108,30 +109,17 @@ class TagSerializer(serializers.ModelSerializer):
 
 
 class RecipeIngredientSerializer(serializers.ModelSerializer):
-    # id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
-    # amount = serializers.DecimalField(max_digits=10, decimal_places=2)
-    # id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
     id = serializers.IntegerField()
-    # amount = serializers.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:
-        fields = ['id', 'amount']  # ['id', 'name', 'amount', 'measurement_unit']
+        fields = ['id', 'amount']
         model = RecipeIngredient
 
 
 class IngredientInRecipeSerializer(serializers.ModelSerializer):
-    # id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
-    # amount = serializers.DecimalField(max_digits=10, decimal_places=2)
-    # id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
-    # id = serializers.IntegerField()
-    # name = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
     name = serializers.SlugRelatedField(
         slug_field='name', read_only=True
     )
-    # measurement_unit = serializers.SlugRelatedField(
-    #     slug_field='measurement_unit', read_only=True
-    # )
-    # amount = serializers.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:
         fields = ['id', 'name', 'measurement_unit', 'amount']

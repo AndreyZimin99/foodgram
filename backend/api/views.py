@@ -1,28 +1,28 @@
-from django.conf import settings
-from django.contrib.auth.tokens import default_token_generator
+# from django.conf import settings
+# from django.contrib.auth.tokens import default_token_generator
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import mixins, status, views, viewsets
+from rest_framework import mixins, status, viewsets
 # from rest_framework import filters, mixins, permissions, viewsets
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
-from rest_framework.decorators import action
+# from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.filters import SearchFilter
-from rest_framework.pagination import (LimitOffsetPagination,
-                                       PageNumberPagination)
-from rest_framework.permissions import AllowAny, IsAuthenticated
+# from rest_framework.filters import SearchFilter
+# from rest_framework.pagination import (LimitOffsetPagination,
+#                                        PageNumberPagination)
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
+# from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
-from reportlab.lib.pagesizes import letter
+# from reportlab.lib.pagesizes import letter
 from hashids import Hashids
 
 from recipes.models import (
     Favorite,
     Recipe,
-    RecipeIngredient,
+    # RecipeIngredient,
     ShoppingCart,
     ShortLink,
     Tag,
@@ -32,7 +32,7 @@ from users.models import Subscription, User
 # from .mixins import EmailConfirmationMixin
 from api.filters import RecipeFilter
 from api.pagination import CustomPagination
-from api.permissions import IsAdmin, IsAdminOrReadOnly, IsAuthorOrReadOnly
+from api.permissions import IsAuthorOrReadOnly
 from api.serializers import (
     FavoriteSerializer,
     RecipeSerializer,
@@ -40,7 +40,7 @@ from api.serializers import (
     IngredientSerializer,
     ShoppingCartSerializer,
     SubscriptionSerializer,
-    SubscriptionListSerializer,
+    # SubscriptionListSerializer,
     ShortLinkSerializer,
     # SignupSerializer,
     TokenSerializer,
