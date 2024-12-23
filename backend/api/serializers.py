@@ -5,7 +5,7 @@ import re
 from django.core.files.base import ContentFile
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
-from recipes.models import (Favorite, Ingredient, Recipe, RecipeIngredient,
+from recipes.models import (Favorite, Ingredient, RecipeIngredient, Recipe,
                             ShoppingCart, ShortLink, Tag)
 from users.models import Subscription, User
 
