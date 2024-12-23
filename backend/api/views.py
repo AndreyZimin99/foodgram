@@ -1,57 +1,39 @@
-# from django.conf import settings
-# from django.contrib.auth.tokens import default_token_generator
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status, viewsets
-# from rest_framework import filters, mixins, permissions, viewsets
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
-# from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-# from rest_framework.filters import SearchFilter
-# from rest_framework.pagination import (LimitOffsetPagination,
-#                                        PageNumberPagination)
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-# from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
-# from reportlab.lib.pagesizes import letter
 from hashids import Hashids
 
-from recipes.models import (
-    Favorite,
-    Recipe,
-    # RecipeIngredient,
-    ShoppingCart,
-    ShortLink,
-    Tag,
-    Ingredient
-)
-from users.models import Subscription, User
-# from .mixins import EmailConfirmationMixin
 from api.filters import RecipeFilter
 from api.pagination import CustomPagination
 from api.permissions import IsAuthorOrReadOnly
 from api.serializers import (
     FavoriteSerializer,
-    RecipeSerializer,
-    TagSerializer,
     IngredientSerializer,
+    RecipeSerializer,
     ShoppingCartSerializer,
-    SubscriptionSerializer,
-    # SubscriptionListSerializer,
     ShortLinkSerializer,
-    # SignupSerializer,
+    SubscriptionSerializer,
+    TagSerializer,
     TokenSerializer,
-    UserSerializer,
     UserCreateSerializer,
+    UserSerializer,
 )
-
-
-# class CreateListViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
-#                         viewsets.GenericViewSet):
-#     pass
+from recipes.models import (
+    Favorite,
+    Ingredient,
+    Recipe,
+    ShoppingCart,
+    ShortLink,
+    Tag,
+)
+from users.models import Subscription, User
 
 hashids = Hashids(salt='FG', min_length=1)
 
@@ -83,7 +65,6 @@ class TokenViewSet(ObtainAuthToken):
         password = serializer.validated_data['password']
         user = get_object_or_404(User, email=email)
         if password == user.password:
-            # token = default_token_generator.make_token(user)
             token, created = Token.objects.get_or_create(user=user)
             return Response(
                 {'auth_token': token.key}, status=status.HTTP_200_OK
@@ -102,28 +83,6 @@ class Logout(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-    # def delete(self, request):
-    #     """Удаление токена."""
-    #     token = get_object_or_404(Token, user=request.user)
-    #     token.delete()
-    #     return Response(status=status.HTTP_204_NO_CONTENT)
-
-        # email = serializer.validated_data['email']
-        # password = serializer.validated_data['password']
-        # user = get_object_or_404(User, email=email)
-        # if password == user.password:
-        #     # token = default_token_generator.make_token(user)
-        #     token, created = Token.objects.get_or_create(user=user)
-        #     return Response(
-        #         {'auth_token': token.key}, status=status.HTTP_200_OK
-        #     )
-
-        # return Response(
-        #     {'error': 'Неверный пароль'},
-        #     status=status.HTTP_400_BAD_REQUEST,
-        # )
-
-
 class UserViewSet(
     mixins.CreateModelMixin,
     mixins.RetrieveModelMixin,
@@ -133,20 +92,7 @@ class UserViewSet(
     """Класс для работы с пользователями."""
 
     queryset = User.objects.all()
-    # serializer_class = UserSerializer
-    # permission_classes = [IsAuthenticated]
-    # lookup_field = 'username'
     pagination_class = CustomPagination
-    # filter_backends = [SearchFilter]
-    # search_fields = ['username']
-    # pagination_class = LimitOffsetPagination
-
-    # def get_permissions(self):
-    #     if self.action in ['list', 'retrieve']:
-    #         return [IsAuthenticated()]
-    #     if self.action == 'create':
-    #         return [AllowAny()]
-    #     return super().get_permissions()
 
     def get_serializer_class(self):
         if self.action == 'create':

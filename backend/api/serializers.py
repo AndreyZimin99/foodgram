@@ -1,16 +1,13 @@
 import base64
-import re
 import logging
+import re
 
 from django.core.files.base import ContentFile
 from rest_framework import serializers
-# from rest_framework.response import Response
 from rest_framework.validators import UniqueTogetherValidator
-
-from recipes.models import (Recipe, RecipeIngredient, ShoppingCart,
-                            Tag, Ingredient, Favorite, ShortLink)
+from recipes.models import (Favorite, Ingredient, Recipe, RecipeIngredient,
+                            ShoppingCart, ShortLink, Tag)
 from users.models import Subscription, User
-
 
 logger = logging.getLogger(__name__)
 MAX_EMAIL_LENGTH = 254
