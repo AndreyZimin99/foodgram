@@ -8,7 +8,22 @@ class RecipeFilter(filters.FilterSet):
         queryset=Tag.objects.all(),
         to_field_name='slug',
     )
+    is_favorited = filters.CharFilter(method='filter_is_favorited')
+    is_in_shopping_cart = filters.CharFilter(
+        method='filter_is_in_shopping_cart')
 
     class Meta:
         model = Recipe
-        fields = ['is_favorited', 'is_in_shopping_cart', 'author', 'tags']
+        fields = ['author', 'tags', 'is_favorited', 'is_in_shopping_cart']
+
+    def filter_is_favorited(self, queryset, name, value):
+        if value == '1':
+            user = self.request.user
+            return queryset.filter(favorite__user=user)
+        return queryset
+
+    def filter_is_in_shopping_cart(self, queryset, name, value):
+        if value == '1':
+            user = self.request.user
+            return queryset.filter(shoppingcart__user=user)
+        return queryset

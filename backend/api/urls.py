@@ -5,9 +5,10 @@ from api.views import (
     FavoriteViewSet,
     IngredientViewSet,
     Logout,
+    RecipeGetLinkView,
     RecipeViewSet,
+    RedirectShortLinkView,
     ShoppingCartViewSet,
-    ShortLinkView,
     SubcribtionCreateDestroyViewSet,
     SubscriptionListViewSet,
     TagViewSet,
@@ -59,7 +60,9 @@ urlpatterns = [
     path('recipes/download_shopping_cart/',
          ShoppingCartViewSet.as_view({'get': 'download_txt'})),
     path('recipes/<int:recipe_id>/get-link/',
-         ShortLinkView.as_view({'get': 'get'}), name='short-link'),
-
+         RecipeGetLinkView.as_view(), name='short-link'),
+    path('s/<str:short_code>/',
+         RedirectShortLinkView.as_view(),
+         name='redirect-shortlink'),
     path('', include(router_v1.urls)),
 ]

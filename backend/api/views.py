@@ -1,14 +1,13 @@
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import mixins, status, viewsets
+from rest_framework import generics, mixins, status, viewsets
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from hashids import Hashids
 
 from api.filters import RecipeFilter
 from api.pagination import CustomPagination
@@ -18,7 +17,6 @@ from api.serializers import (
     IngredientSerializer,
     RecipeSerializer,
     ShoppingCartSerializer,
-    ShortLinkSerializer,
     SubscriptionSerializer,
     TagSerializer,
     TokenSerializer,
@@ -34,23 +32,6 @@ from recipes.models import (
     Tag,
 )
 from users.models import Subscription, User
-
-hashids = Hashids(salt='FG', min_length=1)
-
-
-def generate_unique_string(number):
-    return hashids.encode(number)
-
-
-class CreateRetrieveListDestroyViewSet(
-    mixins.CreateModelMixin,
-    mixins.RetrieveModelMixin,
-    mixins.ListModelMixin,
-    mixins.DestroyModelMixin,
-    viewsets.GenericViewSet
-):
-
-    pass
 
 
 class TokenViewSet(ObtainAuthToken):
@@ -139,6 +120,7 @@ class UserPasswordView(APIView):
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
+    """Класс для работы с рецептами."""
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
     pagination_class = CustomPagination
@@ -162,6 +144,7 @@ class TagViewSet(
     mixins.ListModelMixin,
     viewsets.GenericViewSet
 ):
+    """Класс для работы с тэгами."""
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
 
@@ -171,6 +154,7 @@ class IngredientViewSet(
     mixins.ListModelMixin,
     viewsets.GenericViewSet
 ):
+    """Класс для работы с ингредиентами."""
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
 
@@ -180,6 +164,7 @@ class SubcribtionCreateDestroyViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet
 ):
+    """Создание и удаление подписки."""
     permission_classes = [IsAuthenticated]
     queryset = Subscription.objects.all()
     serializer_class = SubscriptionSerializer
@@ -226,6 +211,7 @@ class SubcribtionCreateDestroyViewSet(
 
 
 class SubscriptionListViewSet(mixins.ListModelMixin, viewsets.ViewSet):
+    """Получение списка подписок."""
     permission_classes = [IsAuthenticated]
     pagination_class = CustomPagination
 
@@ -243,6 +229,7 @@ class FavoriteViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet
 ):
+    """Класс для добавления и удаления из избранного."""
     permission_classes = [IsAuthenticated]
     queryset = Favorite.objects.all()
     serializer_class = FavoriteSerializer
@@ -283,6 +270,7 @@ class ShoppingCartViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet
 ):
+    """Класс для работы со списком сокупок."""
     queryset = ShoppingCart.objects.all()
     serializer_class = ShoppingCartSerializer
     permission_classes = [IsAuthenticated]
@@ -356,15 +344,22 @@ class ShoppingCartViewSet(
         return response
 
 
-class ShortLinkView(viewsets.GenericViewSet):
-    serializer_class = ShortLinkSerializer
-
+class RecipeGetLinkView(generics.GenericAPIView):
+    """Класс для получения короткой ссылки для рецепта."""
     def get(self, request, recipe_id):
-        unique_string = generate_unique_string(recipe_id)
-        short_link = f"https://foodgram.org/s/{unique_string}"
-        short_link_instance, created = ShortLink.objects.get_or_create(
-            recipe_id=recipe_id,
-            defaults={'short_link': short_link}
-        )
+        recipe = get_object_or_404(Recipe, id=recipe_id)
 
-        return Response({"short-link": short_link})
+        short_link, created = ShortLink.objects.get_or_create(recipe=recipe)
+
+        return Response({
+            "short-link": short_link.get_short_link()
+        })
+
+
+class RedirectShortLinkView(generics.GenericAPIView):
+    """Класс для переадресации по короткой ссылке."""
+    def get(self, request, short_code):
+        short_link = get_object_or_404(ShortLink, short_code=short_code)
+        return redirect(
+            f"https://fgm.hopto.org/recipes/{short_link.recipe.id}/"
+        )

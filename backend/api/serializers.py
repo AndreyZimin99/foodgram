@@ -3,10 +3,11 @@ import logging
 import re
 
 from django.core.files.base import ContentFile
+from django.core.validators import MinValueValidator
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 from recipes.models import (Favorite, Ingredient, RecipeIngredient, Recipe,
-                            ShoppingCart, ShortLink, Tag)
+                            ShoppingCart, Tag)
 from users.models import Subscription, User
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ class Base64ImageField(serializers.ImageField):
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
-    """Сериализатор пользователя."""
+    """Сериализатор создания пользователя."""
 
     password = serializers.CharField(write_only=True)
 
@@ -90,7 +91,7 @@ class TokenSerializer(serializers.Serializer):
 
 
 class IngredientSerializer(serializers.ModelSerializer):
-    """Сериализатор для ингридиента."""
+    """Сериализатор для ингредиента."""
 
     class Meta:
         fields = '__all__'
@@ -106,7 +107,9 @@ class TagSerializer(serializers.ModelSerializer):
 
 
 class RecipeIngredientSerializer(serializers.ModelSerializer):
+    """Сериализатор для добавления ингредиента в рецпт."""
     id = serializers.IntegerField()
+    amount = serializers.IntegerField(validators=[MinValueValidator(0)])
 
     class Meta:
         fields = ['id', 'amount']
@@ -114,6 +117,7 @@ class RecipeIngredientSerializer(serializers.ModelSerializer):
 
 
 class IngredientInRecipeSerializer(serializers.ModelSerializer):
+    """Сериализатор отображения ингредиента внутри рецпта."""
     name = serializers.SlugRelatedField(
         slug_field='name', read_only=True
     )
@@ -135,6 +139,7 @@ class RecipeSerializer(serializers.ModelSerializer):
     image = Base64ImageField()
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
+    cooking_time = serializers.IntegerField(validators=[MinValueValidator(0)])
 
     class Meta:
         fields = [
@@ -208,20 +213,21 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     def get_is_favorited(self, obj):
         request = self.context.get('request')
-        if request.user.is_authenticated:
+        if request and request.user.is_authenticated:
             return Favorite.objects.filter(
                 user=request.user, recipe=obj).exists()
         return False
 
     def get_is_in_shopping_cart(self, obj):
         request = self.context.get('request')
-        if request.user.is_authenticated:
+        if request and request.user.is_authenticated:
             return ShoppingCart.objects.filter(
                 user=request.user, recipe=obj).exists()
         return False
 
 
 class RecipeLessFieldsSerializer(serializers.ModelSerializer):
+    """Сериализатор рецепта с меньшим числом полей."""
 
     class Meta:
         fields = [
@@ -234,6 +240,7 @@ class RecipeLessFieldsSerializer(serializers.ModelSerializer):
 
 
 class FavoriteSerializer(serializers.ModelSerializer):
+    """Сериализатор избранного."""
     user = serializers.SlugRelatedField(
         slug_field='username',
         read_only=True,
@@ -262,6 +269,7 @@ class FavoriteSerializer(serializers.ModelSerializer):
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):
+    """Сериализатор подписки."""
     user = serializers.SlugRelatedField(
         slug_field='username',
         read_only=True,
@@ -294,7 +302,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
                 many=True
             ).data
         else:
-            representation['recipes'] = RecipeSerializer(
+            representation['recipes'] = RecipeLessFieldsSerializer(
                 Recipe.objects.filter(
                     author=instance.subscribing),
                 many=True
@@ -304,14 +312,8 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         return representation
 
 
-class SubscriptionListSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Subscription
-        fields = ['user']
-
-
 class ShoppingCartSerializer(serializers.ModelSerializer):
+    """Сериализатор списка покупок."""
     user = serializers.SlugRelatedField(
         slug_field='username',
         read_only=True,
@@ -337,11 +339,3 @@ class ShoppingCartSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         representation = RecipeLessFieldsSerializer(instance.recipe).data
         return representation
-
-
-class ShortLinkSerializer(serializers.Serializer):
-    short_link = serializers.CharField()
-
-    class Meta:
-        model = ShortLink
-        fields = 'short_link'
