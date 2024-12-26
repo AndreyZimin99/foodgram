@@ -1,5 +1,8 @@
+from django.conf import settings
 from django.db import models
+from django.core.validators import MinValueValidator
 from django.utils.crypto import get_random_string
+
 from users.models import User
 
 
@@ -19,7 +22,9 @@ class Ingredient(models.Model):
 class Tag(models.Model):
     """Модель тэга."""
     name = models.TextField('Название', unique=True)
-    slug = models.SlugField('Слаг', unique=True, max_length=50)
+    slug = models.SlugField('Слаг',
+                            unique=True,
+                            max_length=settings.MAX_LENGTH)
 
     class Meta:
         verbose_name = 'тэг'
@@ -34,7 +39,10 @@ class RecipeIngredient(models.Model):
     name = models.ForeignKey(Ingredient,
                              on_delete=models.CASCADE,
                              verbose_name='Ингредиент')
-    amount = models.PositiveIntegerField('Количество')
+    amount = models.PositiveIntegerField(
+        validators=[MinValueValidator(settings.MIN_VALUE)],
+        verbose_name='Количество'
+    )
     measurement_unit = models.TextField('Единица измерения')
 
     class Meta:
@@ -65,13 +73,17 @@ class Recipe(models.Model):
                                          verbose_name='Ингредиенты',
                                          blank=False)
     tags = models.ManyToManyField(Tag, verbose_name='Тэги', blank=False)
-    cooking_time = models.PositiveIntegerField('Время приготовления')
+    cooking_time = models.PositiveIntegerField(
+        validators=[MinValueValidator(settings.MIN_VALUE)],
+        verbose_name='Время приготовления'
+    )
     is_favorited = models.BooleanField(default=False,
                                        verbose_name='Избранное')
     is_in_shopping_cart = models.BooleanField(default=False,
                                               verbose_name='Список покупок')
 
     class Meta:
+        default_related_name = 'recipes'
         ordering = ('-id',)
         verbose_name = 'рецепт'
         verbose_name_plural = 'Рецепты'
@@ -86,6 +98,7 @@ class Favorite(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
 
     class Meta:
+        default_related_name = 'favorites'
         constraints = [
             models.UniqueConstraint(
                 fields=['user', 'recipe'],
@@ -102,6 +115,7 @@ class ShoppingCart(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
 
     class Meta:
+        default_related_name = 'shoppingcart'
         constraints = [
             models.UniqueConstraint(
                 fields=['user', 'recipe'],

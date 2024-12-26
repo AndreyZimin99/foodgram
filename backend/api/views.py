@@ -4,7 +4,6 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, mixins, status, viewsets
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
-from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -176,10 +175,7 @@ class SubcribtionCreateDestroyViewSet(
             User,
             id=self.kwargs['user_id'],
         )
-        if user == subscribing:
-            raise ValidationError(
-                'Вы не можете подписаться на себя.'
-            )
+        serializer.validate_subscribing(subscribing)
         serializer.save(user=user, subscribing=subscribing)
 
     def destroy(self, request, *args, **kwargs):
@@ -199,29 +195,15 @@ class SubcribtionCreateDestroyViewSet(
         except Subscription.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-    def get_context_data(self, request, *args, **kwargs):
-        recipes_limit = request.query_params.get('recipes_limit', None)
-        response = self.retrieve(request, *args, **kwargs)
 
-        response.data['recipes'] = SubscriptionSerializer(
-            response.data,
-            context={'recipes_limit': recipes_limit}
-        ).data['recipes']
-        return response
-
-
-class SubscriptionListViewSet(mixins.ListModelMixin, viewsets.ViewSet):
+class SubscriptionListViewSet(viewsets.ModelViewSet):
     """Получение списка подписок."""
     permission_classes = [IsAuthenticated]
     pagination_class = CustomPagination
+    serializer_class = SubscriptionSerializer
 
-    def list(self, request):
-        subscriptions = Subscription.objects.filter(user=request.user)
-        paginator = self.pagination_class()
-        paginated_subscriptions = paginator.paginate_queryset(subscriptions,
-                                                              request)
-        serializer = SubscriptionSerializer(paginated_subscriptions, many=True)
-        return paginator.get_paginated_response(serializer.data)
+    def get_queryset(self):
+        return Subscription.objects.filter(user=self.request.user)
 
 
 class FavoriteViewSet(
