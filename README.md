@@ -3,6 +3,7 @@
 #  Foodgram
 
 ## Вход в админку:
+   - адрес: https://fgm.hopto.org
    - username: user
    - password: 1234
 

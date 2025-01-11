@@ -14,7 +14,7 @@ class RecipeAdmin(admin.ModelAdmin):
     list_display = ('name', 'author', 'favorite_count')
     list_filter = ('tags',)
     search_fields = ('author__username', 'name', 'tags__name')
-    ordering = ('-name',)
+    ordering = ('name',)
 
     def favorite_count(self, obj):
         return Favorite.objects.filter(recipe=obj).count()
@@ -25,7 +25,7 @@ class RecipeAdmin(admin.ModelAdmin):
 class IngredientAdmin(admin.ModelAdmin):
     list_display = ('name', 'measurement_unit')
     search_fields = ('name',)
-    ordering = ('-name',)
+    ordering = ('name',)
 
 
 admin.site.register(Recipe, RecipeAdmin)
