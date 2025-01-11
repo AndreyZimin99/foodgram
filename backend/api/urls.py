@@ -7,7 +7,6 @@ from api.views import (
     Logout,
     RecipeGetLinkView,
     RecipeViewSet,
-    RedirectShortLinkView,
     ShoppingCartViewSet,
     SubscribtionCreateDestroyViewSet,
     SubscriptionListViewSet,

@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -6,7 +5,6 @@ from django_filters import rest_framework as filters
 from rest_framework import generics, mixins, status, viewsets
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
-from rest_framework.filters import SearchFilter
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
