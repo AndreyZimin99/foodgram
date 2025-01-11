@@ -1,9 +1,13 @@
+from django.conf import settings
+from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
-from django_filters.rest_framework import DjangoFilterBackend
+from django_filters import rest_framework as filters
 from rest_framework import generics, mixins, status, viewsets
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
+from rest_framework.filters import SearchFilter
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -22,12 +26,13 @@ from api.serializers import (
     UserCreateSerializer,
     UserSerializer,
 )
+from api.utils import create_file_shopping_cart
 from recipes.models import (
     Favorite,
     Ingredient,
     Recipe,
+    RecipeIngredient,
     ShoppingCart,
-    ShortLink,
     Tag,
 )
 from users.models import Subscription, User
@@ -123,9 +128,21 @@ class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
     pagination_class = CustomPagination
-    filter_backends = (DjangoFilterBackend,)
+    filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = RecipeFilter
     http_method_names = ['get', 'post', 'delete', 'patch']
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        page = self.request.query_params.get('page', None)
+        if page is not None:
+            limit = self.pagination_class.default_limit
+            offset = (int(page) - 1) * limit
+            self.request.query_params._mutable = True
+            self.request.query_params['offset'] = offset
+            self.request.query_params['limit'] = limit
+            self.request.query_params._mutable = False
+        return queryset
 
     def get_permissions(self):
         if self.request == 'post':
@@ -154,11 +171,14 @@ class IngredientViewSet(
     viewsets.GenericViewSet
 ):
     """Класс для работы с ингредиентами."""
-    queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
 
+    def get_queryset(self):
+        name = self.request.query_params.get('name', '')
+        return Ingredient.objects.filter(name__icontains=name)
 
-class SubcribtionCreateDestroyViewSet(
+
+class SubscribtionCreateDestroyViewSet(
     mixins.CreateModelMixin,
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet
@@ -175,7 +195,6 @@ class SubcribtionCreateDestroyViewSet(
             User,
             id=self.kwargs['user_id'],
         )
-        serializer.validate_subscribing(subscribing)
         serializer.save(user=user, subscribing=subscribing)
 
     def destroy(self, request, *args, **kwargs):
@@ -198,12 +217,24 @@ class SubcribtionCreateDestroyViewSet(
 
 class SubscriptionListViewSet(viewsets.ModelViewSet):
     """Получение списка подписок."""
+    queryset = Subscription.objects.all()
+    filter_backends = (filters.DjangoFilterBackend,)
+    filterset_fields = ('user',)
     permission_classes = [IsAuthenticated]
     pagination_class = CustomPagination
     serializer_class = SubscriptionSerializer
 
     def get_queryset(self):
-        return Subscription.objects.filter(user=self.request.user)
+        queryset = super().get_queryset()
+        page = self.request.query_params.get('page', None)
+        if page is not None:
+            limit = self.pagination_class.default_limit
+            offset = (int(page) - 1) * limit
+            self.request.query_params._mutable = True
+            self.request.query_params['offset'] = offset
+            self.request.query_params['limit'] = limit
+            self.request.query_params._mutable = False
+        return queryset
 
 
 class FavoriteViewSet(
@@ -286,42 +317,16 @@ class ShoppingCartViewSet(
         except ShoppingCart.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-    from django.http import HttpResponse
-
     def download_txt(self, request):
-        shopping_carts = ShoppingCart.objects.filter(user=request.user)
-        recipes = []
-        for shopping_cart in shopping_carts:
-            recipes.append(shopping_cart.recipe)
-
+        ingredients = (RecipeIngredient.objects
+                       .filter(recipes__shoppingcart__user=request.user)
+                       .values('name__name', 'measurement_unit')
+                       .annotate(total_amount=Sum('amount'))
+                       )
         response = HttpResponse(content_type='text/plain')
         response['Content-Disposition'] = 'attachment; \
                                            filename="shopping_cart.txt"'
-
-        content = 'Shopping_cart\n'
-        ingredients = []
-        for recipe in recipes:
-            for ingredient in recipe.ingredients.all():
-                ingredients.append(ingredient)
-
-        combined_ingredients = {}
-        for ingredient in ingredients:
-            name = ingredient.name.name
-            amount = ingredient.amount
-            if name in combined_ingredients:
-                combined_ingredients[name]['amount'] += amount
-            else:
-                combined_ingredients[name] = {
-                    'name': name,
-                    'measurement_unit': ingredient.measurement_unit,
-                    'amount': amount
-                }
-        ingredient_list = list(combined_ingredients.values())
-        for ingredient in ingredient_list:
-            ingredient_data = f'{ingredient["name"]} \
-({ingredient["measurement_unit"]}) - {ingredient["amount"]} '
-            content += ingredient_data + '\n'
-
+        content = create_file_shopping_cart(ingredients)
         response.write(content)
         return response
 
@@ -329,19 +334,18 @@ class ShoppingCartViewSet(
 class RecipeGetLinkView(generics.GenericAPIView):
     """Класс для получения короткой ссылки для рецепта."""
     def get(self, request, recipe_id):
-        recipe = get_object_or_404(Recipe, id=recipe_id)
+        try:
+            recipe = Recipe.objects.get(id=recipe_id)
+            short_link = request.build_absolute_uri(
+                f'/s/{recipe.short_link}/')
+            return Response({'short-link': short_link})
+        except Recipe.DoesNotExist:
+            raise NotFound("Рецепт не найден.")
 
-        short_link, created = ShortLink.objects.get_or_create(recipe=recipe)
 
-        return Response({
-            "short-link": short_link.get_short_link()
-        })
-
-
-class RedirectShortLinkView(generics.GenericAPIView):
+class RedirectShortLinkView(APIView):
     """Класс для переадресации по короткой ссылке."""
-    def get(self, request, short_code):
-        short_link = get_object_or_404(ShortLink, short_code=short_code)
-        return redirect(
-            f"https://fgm.hopto.org/recipes/{short_link.recipe.id}/"
-        )
+    def get(self, request, short_link):
+        recipe = get_object_or_404(Recipe, short_link=short_link)
+        return redirect(request.build_absolute_uri(
+            f'/recipes/{recipe.id}/'))

@@ -6,15 +6,14 @@ from .models import (
     Recipe,
     RecipeIngredient,
     ShoppingCart,
-    ShortLink,
     Tag,
 )
 
 
 class RecipeAdmin(admin.ModelAdmin):
-    list_display = ('name', 'favorite_count')
+    list_display = ('name', 'author', 'favorite_count')
     list_filter = ('tags',)
-    search_fields = ('author__username', 'name')
+    search_fields = ('author__username', 'name', 'tags__name')
     ordering = ('-name',)
 
     def favorite_count(self, obj):
@@ -24,6 +23,7 @@ class RecipeAdmin(admin.ModelAdmin):
 
 
 class IngredientAdmin(admin.ModelAdmin):
+    list_display = ('name', 'measurement_unit')
     search_fields = ('name',)
 
 
@@ -33,4 +33,3 @@ admin.site.register(Tag)
 admin.site.register(Favorite)
 admin.site.register(RecipeIngredient)
 admin.site.register(ShoppingCart)
-admin.site.register(ShortLink)

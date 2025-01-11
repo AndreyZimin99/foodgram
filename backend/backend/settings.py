@@ -6,11 +6,13 @@ from pathlib import Path
 
 load_dotenv()
 
+secret_key = get_random_secret_key()
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv(
     'SECRET_KEY',
-    get_random_secret_key()
+    secret_key
 )
 
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
@@ -136,10 +138,16 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-POST_PER_PAGE = 10
+POST_PER_PAGE = 6
 FORBIDDEN_USERNAME = 'me'
 MAX_EMAIL_LENGTH = 254
 MAX_USERNAME_LENGTH = 150
 USERNAME_REGEX = r'^[\w.@+-]+$'
 MIN_VALUE = 1
 MAX_LENGTH = 50
+# SHORT_URL = 'https://fgm.hopto.org/s/'
+# SHORT_URL = 'http://localhost:9009/s/'
+# RECIPE_URL = 'https://fgm.hopto.org/api/recipes/'
+# RECIPE_URL = 'http://localhost:9009/api/recipes/'
+SHORT_LINK_MAX_LENGTH = 4
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

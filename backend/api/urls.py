@@ -9,7 +9,7 @@ from api.views import (
     RecipeViewSet,
     RedirectShortLinkView,
     ShoppingCartViewSet,
-    SubcribtionCreateDestroyViewSet,
+    SubscribtionCreateDestroyViewSet,
     SubscriptionListViewSet,
     TagViewSet,
     TokenViewSet,
@@ -35,7 +35,7 @@ urlpatterns = [
          name='user-password'),
     path(
         'users/<int:user_id>/subscribe/',
-        SubcribtionCreateDestroyViewSet.as_view(
+        SubscribtionCreateDestroyViewSet.as_view(
             {'post': 'create', 'delete': 'destroy'}
         ),
         name='subcribe'
@@ -61,8 +61,5 @@ urlpatterns = [
          ShoppingCartViewSet.as_view({'get': 'download_txt'})),
     path('recipes/<int:recipe_id>/get-link/',
          RecipeGetLinkView.as_view(), name='short-link'),
-    path('s/<str:short_code>/',
-         RedirectShortLinkView.as_view(),
-         name='redirect-shortlink'),
     path('', include(router_v1.urls)),
 ]

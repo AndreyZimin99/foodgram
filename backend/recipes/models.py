@@ -1,7 +1,8 @@
+import uuid
+
 from django.conf import settings
 from django.db import models
 from django.core.validators import MinValueValidator
-from django.utils.crypto import get_random_string
 
 from users.models import User
 
@@ -71,7 +72,7 @@ class Recipe(models.Model):
     text = models.TextField('Описание')
     ingredients = models.ManyToManyField(RecipeIngredient,
                                          verbose_name='Ингредиенты',
-                                         blank=False)
+                                         blank=False,)
     tags = models.ManyToManyField(Tag, verbose_name='Тэги', blank=False)
     cooking_time = models.PositiveIntegerField(
         validators=[MinValueValidator(settings.MIN_VALUE)],
@@ -81,6 +82,7 @@ class Recipe(models.Model):
                                        verbose_name='Избранное')
     is_in_shopping_cart = models.BooleanField(default=False,
                                               verbose_name='Список покупок')
+    short_link = models.CharField(max_length=10, unique=True, blank=True)
 
     class Meta:
         default_related_name = 'recipes'
@@ -90,6 +92,12 @@ class Recipe(models.Model):
 
     def __str__(self):
         return f'{self.name} {self.author}'
+
+    def save(self, *args, **kwargs):
+        if not self.short_link:
+            self.short_link = str(
+                uuid.uuid4())[:settings.SHORT_LINK_MAX_LENGTH]
+        super().save(*args, **kwargs)
 
 
 class Favorite(models.Model):
@@ -124,20 +132,3 @@ class ShoppingCart(models.Model):
         ]
         verbose_name = 'список покупок'
         verbose_name_plural = 'Список покупок'
-
-
-class ShortLink(models.Model):
-    """Модель коротких ссылок."""
-    recipe = models.OneToOneField('Recipe', on_delete=models.CASCADE)
-    short_code = models.CharField(
-        max_length=4,
-        unique=True,
-        default=get_random_string(length=4)
-    )
-
-    def get_short_link(self):
-        return f"https://fgm.hopto.org/s/{self.short_code}"
-
-    class Meta:
-        verbose_name = 'короткая ссылка'
-        verbose_name_plural = 'Короткие ссылки'
