@@ -210,7 +210,7 @@ class SubscribtionCreateDestroyViewSet(
             self.perform_destroy(instance)
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Subscription.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class SubscriptionListViewSet(viewsets.ModelViewSet):

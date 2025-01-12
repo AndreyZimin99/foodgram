@@ -17,6 +17,7 @@ from api.views import (
     UserPasswordView,
     UserViewSet,
 )
+from api.views import RedirectShortLinkView
 
 router_v1 = routers.DefaultRouter()
 router_v1.register('users', UserViewSet, basename='users')
@@ -61,4 +62,6 @@ urlpatterns = [
     path('recipes/<int:recipe_id>/get-link/',
          RecipeGetLinkView.as_view(), name='short-link'),
     path('', include(router_v1.urls)),
+    path('<str:short_link>/',
+         RedirectShortLinkView.as_view()),
 ]
