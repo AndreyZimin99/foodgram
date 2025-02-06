@@ -1,9 +1,10 @@
 ![example workflow](https://github.com/AndreyZimin99/foodgram/actions/workflows/main.yml/badge.svg)
 
 #  Foodgram
+В данном проекте я реализовал работу с API, настройку баз данных и аутентификацию пользователей.
 
 ## Вход в админку:
-   - адрес: https://fgm.hopto.org
+   - адрес: https://fgm.hopto.org (в данный момент не активен)
    - username: user
    - password: 1234
 
